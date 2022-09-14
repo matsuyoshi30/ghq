@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,6 +19,7 @@ func doList(c *cli.Context) error {
 		vcsBackend       = c.String("vcs")
 		printFullPaths   = c.Bool("full-path")
 		printUniquePaths = c.Bool("unique")
+		sortByTime       = c.Bool("time")
 	)
 
 	filterByQuery := func(_ *LocalRepository) bool {
@@ -73,6 +75,14 @@ func doList(c *cli.Context) error {
 		return fmt.Errorf("failed to filter repos while walkLocalRepositories(repo): %w", err)
 	}
 
+	if sortByTime {
+		sort.Slice(repos, func(i, j int) bool {
+			fii, _ := os.Stat(repos[i].FullPath)
+			fij, _ := os.Stat(repos[j].FullPath)
+			return fii.ModTime().Before(fij.ModTime())
+		})
+	}
+
 	repoList := make([]string, 0, len(repos))
 	if printUniquePaths {
 		subpathCount := map[string]int{} // Count duplicated subpaths (ex. foo/dotfiles and bar/dotfiles)
@@ -110,7 +120,9 @@ func doList(c *cli.Context) error {
 			}
 		}
 	}
-	sort.Strings(repoList)
+	if !sortByTime {
+		sort.Strings(repoList)
+	}
 	for _, r := range repoList {
 		fmt.Fprintln(w, r)
 	}
